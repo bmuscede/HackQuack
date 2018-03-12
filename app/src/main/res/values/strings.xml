@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">HackQuack</string>
+    <string name="app_title">Welcome to HackQuack!</string>
+
+    <string name="app_desc">To begin, press the start button. HackQuack will wait for HQ to start before it begins.</string>
+    <string name="bottom_desc">Developed with love at the University of Waterloo!</string>
+    <string name="start_btn">Start Hacking HQ!</string>
+    <string name="stop_btn">Stop Hacking HQ!</string>
+    <string name="notification_title">HackQuack Answer</string>
+    <string name="notification_error">Error!</string>
+    <string name="conn_eror">There was an error connecting to HQ! HackQuack has stopped.</string>
+    <string name="quest_error">This question could not be answered!</string>
+    <string name="notification_alert">HackQuack Alert</string>
+    <string name="game_start">The game is about to start! Get ready to play!</string>
+    <string name="duck_image">Image of a duck. Logo of app.</string>
+    <string name="auth_code_title">HQ Authorization Code:</string>
+    <string name="auth_code_hint">(Authorization Code)</string>
+
+    <string name="auth_code_ns">Please supply an authorization code!</string>
+    <string name="auth_code_ukn">Unknown authorization code. Test it out!</string>
+    <string name="auth_code_bad">This authorization code doesn\'t work!</string>
+    <string name="auth_code_good">You\'re good to go! This code works.</string>
+    <string name="auth_code_desc">Authorization code image.</string>
+</resources>
