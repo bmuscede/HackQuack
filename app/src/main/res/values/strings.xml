@@ -8,6 +8,7 @@
     <string name="stop_btn">Stop Hacking HQ!</string>
     <string name="notification_title">HackQuack Answer</string>
     <string name="notification_error">Error!</string>
+    <string name="notification_no_game">There currently is no game! Please wait.</string>
     <string name="conn_eror">There was an error connecting to HQ! HackQuack has stopped.</string>
     <string name="quest_error">This question could not be answered!</string>
     <string name="notification_alert">HackQuack Alert</string>

@@ -16,16 +16,24 @@ import com.uwaterloo.bmuscede.solver.CheapDetector;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.zip.GZIPInputStream;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -39,7 +47,9 @@ import tech.gusavila92.websocketclient.WebSocketClient;
 
 public class HQScraper extends Service{
     private static final String CHANNEL_ID = "hqNotifciation";
-    private static final String HQ_URL = "https://ec2-54-172-47-251.compute-1.amazonaws.com";
+    private static final String HTTPS_PROTO = "https";
+    private static final String SERVER_IP = "54.85.85.160";
+    private static final int SERVER_PORT = 443;
     private static final String ACTIVE_KEY = "active";
     private static final String QUESTION_KEY = "question";
     private static final String ANSWER_KEY = "answers";
@@ -49,7 +59,7 @@ public class HQScraper extends Service{
     private static final String TYPE_KEY = "type";
     private static final String BROADCAST_VALUE = "broadcast_ended";
 
-    private static final int REFRESH_RATE = 1000;
+    private static final int REFRESH_RATE = 5000;
 
     private int curNotification = -1;
     private boolean keepLooping = true;
@@ -57,6 +67,8 @@ public class HQScraper extends Service{
 
     protected enum GAME_STATE {INACTIVE, WAITING, PLAY};
     protected GAME_STATE state;
+
+    private boolean activeFlag;
 
     protected Thread hqRun;
     private NotificationManagerCompat answerManager;
@@ -90,6 +102,7 @@ public class HQScraper extends Service{
 
         //Sets up the state.
         state = GAME_STATE.INACTIVE;
+        activeFlag = false;
 
         //Creates a handler to run code.
         hqRun = new ScrapeRunnable();
@@ -104,6 +117,7 @@ public class HQScraper extends Service{
     @Override
     public void onDestroy(){
         keepLooping = false;
+        super.onDestroy();
     }
 
     public void registerUICallback(UICallback activity){
@@ -163,7 +177,6 @@ public class HQScraper extends Service{
 
         //Converts to JSON.
         JsonReader jsonReader = new JsonReader(response);
-        jsonReader.setLenient(true);
         try {
             jsonReader.beginObject();
 
@@ -191,6 +204,12 @@ public class HQScraper extends Service{
                                     }
                                 }
                             }
+                        }
+                    } else {
+                        if (!activeFlag) {
+                            activeFlag = true;
+                            generateHQNotification(R.string.notification_alert,
+                                    getString(R.string.notification_no_game));
                         }
                     }
                     break;
@@ -324,7 +343,8 @@ public class HQScraper extends Service{
 
     private InputStreamReader connectToHQ(String getReq) throws Exception {
         //Connects to HQ's REST API
-        URL hqEndpoint = new URL(HQ_URL + getReq);
+        //URL hqEndpoint = new URL(HQ_URL + getReq);
+        URL hqEndpoint = new URL(HTTPS_PROTO, SERVER_IP, SERVER_PORT, getReq);
         HttpsURLConnection hqConnection =
                 (HttpsURLConnection) hqEndpoint.openConnection();
 
@@ -338,16 +358,33 @@ public class HQScraper extends Service{
         hqConnection.setRequestProperty("Host", "api-quiz.hype.space");
         hqConnection.setRequestProperty("Connection", "Keep-Alive");
         hqConnection.setRequestProperty("Accept-Encoding", "gzip");
-        hqConnection.setRequestProperty("User-Agent", "okhttp/3.8.0");
+        hqConnection.setRequestProperty("User-Agent", "HackQuack/1.0.0");
 
         //If we get a BAD response, throw an exception.
         if (hqConnection.getResponseCode() != 200){
             throw new Exception("HQ returned a non-200 error code!");
         }
 
-        //Reads the response.
-        InputStream gameResponse = hqConnection.getInputStream();
-        return new InputStreamReader(gameResponse, "UTF-8");
+        //Determines whether we read based on GZIP.
+        String hello = hqConnection.getContentEncoding();
+        InputStreamReader reader;
+        if ("gzip".equals(hqConnection.getContentEncoding())) {
+            reader = new InputStreamReader(
+                    new GZIPInputStream(hqConnection.getInputStream()), "utf-8");
+        } else {
+            reader = new InputStreamReader(hqConnection.getInputStream(), "utf-8");
+        }
+        return reader;
+    }
+
+    public static void copy(InputStream in, OutputStream out , int bufferSize)
+            throws IOException {
+        // Read bytes and write to destination until eof
+        byte[] buf = new byte[bufferSize];
+        int len = 0;
+        while ((len = in.read(buf)) >= 0) {
+            out.write(buf, 0, len);
+        }
     }
 
     private class ScrapeRunnable extends Thread {

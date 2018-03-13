@@ -48,6 +48,7 @@ public class StartActivity extends AppCompatActivity implements UICallback {
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
             scrapperService.registerUICallback(null);
+            stopService(hqScrapper);
             bound = false;
         }
     };
@@ -174,6 +175,7 @@ public class StartActivity extends AppCompatActivity implements UICallback {
                 curButton.setText(R.string.stop_btn);
             } else {
                 stopService(hqScrapper);
+                unbindService(serviceConnection);
                 curButton.setText(R.string.start_btn);
             }
         }

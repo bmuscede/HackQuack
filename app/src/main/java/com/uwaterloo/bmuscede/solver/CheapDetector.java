@@ -26,7 +26,7 @@ public class CheapDetector {
 
         public void reset(){
             calcResult = -1;
-            returned = false; 
+            returned = false;
         }
 
         public double getWeight() {
