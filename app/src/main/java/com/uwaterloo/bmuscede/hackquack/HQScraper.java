@@ -14,6 +14,8 @@ import android.util.JsonReader;
 
 import com.uwaterloo.bmuscede.solver.CheapDetector;
 
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -180,39 +182,32 @@ public class HQScraper extends Service{
         try {
             jsonReader.beginObject();
 
-            while (jsonReader.hasNext()){
+            while (jsonReader.hasNext()) {
                 String key = jsonReader.nextName();
-                if (key.equals(ACTIVE_KEY)){
+                if (key.equals(ACTIVE_KEY)) {
                     boolean active = jsonReader.nextBoolean();
-
-                    //Check if the game is starting.
-                    if (active == true){
+                    if (active == true) {
                         generateHQNotification(R.string.notification_alert,
                                 getString(R.string.game_start));
                         state = GAME_STATE.WAITING;
+                    }
+                } else if (key.equals(BROADCAST_KEY) && state == GAME_STATE.WAITING) {
+                    if (key.equals(BROADCAST_KEY)){
+                        jsonReader.beginObject();
 
-                        //Next, we get the game ID.
                         while (jsonReader.hasNext()){
                             key = jsonReader.nextName();
-                            if (key.equals(BROADCAST_KEY)){
-                                jsonReader.beginObject();
-
-                                while (jsonReader.hasNext()){
-                                    key = jsonReader.nextName();
-                                    if (key.equals(GAME_ID_KEY)){
-                                        return jsonReader.nextInt();
-                                    }
-                                }
+                            if (key.equals(GAME_ID_KEY)){
+                                int gID = jsonReader.nextInt();
+                                jsonReader.close();
+                                return gID;
+                            } else {
+                                jsonReader.skipValue();
                             }
                         }
-                    } else {
-                        if (!activeFlag) {
-                            activeFlag = true;
-                            generateHQNotification(R.string.notification_alert,
-                                    getString(R.string.notification_no_game));
-                        }
                     }
-                    break;
+                } else {
+                    jsonReader.skipValue();
                 }
             }
         } catch (Exception e){
@@ -259,7 +254,12 @@ public class HQScraper extends Service{
                                 return;
                             } else if (value == BROADCAST_VALUE){
                                 //TODO: Add a value to resume if the broadcast fails.
-                            } else return;
+                            } else {
+                                reader.close();
+                                return;
+                            }
+                        } else {
+                            reader.skipValue();
                         }
                     }
 
@@ -317,15 +317,23 @@ public class HQScraper extends Service{
                     question = reader.nextString();
                 } else if (key.equals(ANSWER_KEY)) {
                     reader.beginArray();
+
                     while (reader.hasNext()){
                         reader.beginObject();
                         while (reader.hasNext()){
                             key = reader.nextName();
                             if (key.equals(ANSWER_TEXT_KEY)){
                                 answers.add(reader.nextString());
+                            } else {
+                                reader.skipValue();
                             }
                         }
+                        reader.endObject();;
                     }
+
+                    reader.endArray();
+                } else  {
+                    reader.skipValue();
                 }
             }
         } catch (Exception e) {
@@ -374,17 +382,8 @@ public class HQScraper extends Service{
         } else {
             reader = new InputStreamReader(hqConnection.getInputStream(), "utf-8");
         }
-        return reader;
-    }
 
-    public static void copy(InputStream in, OutputStream out , int bufferSize)
-            throws IOException {
-        // Read bytes and write to destination until eof
-        byte[] buf = new byte[bufferSize];
-        int len = 0;
-        while ((len = in.read(buf)) >= 0) {
-            out.write(buf, 0, len);
-        }
+        return reader;
     }
 
     private class ScrapeRunnable extends Thread {
