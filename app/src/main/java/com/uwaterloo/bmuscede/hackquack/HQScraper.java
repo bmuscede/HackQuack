@@ -58,10 +58,12 @@ public class HQScraper extends Service{
     private static final String ANSWER_TEXT_KEY = "text";
     private static final String BROADCAST_KEY = "broadcast";
     private static final String GAME_ID_KEY = "broadcastId";
+    private static final String Q_COUNT_KEY = "questionCount";
     private static final String TYPE_KEY = "type";
-    private static final String BROADCAST_VALUE = "broadcast_ended";
+    private static final String BROADCAST_VALUE = "broadcastEnded";
 
-    private static final int REFRESH_RATE = 5000;
+    private static final int FAST_REFRESH_RATE = 100;
+    private static final int SLOW_REFRESH_RATE = 5000;
 
     private int curNotification = -1;
     private boolean keepLooping = true;
@@ -70,7 +72,8 @@ public class HQScraper extends Service{
     protected enum GAME_STATE {INACTIVE, WAITING, PLAY};
     protected GAME_STATE state;
 
-    private boolean activeFlag;
+    private int qNum;
+    private int qTotal;
 
     protected Thread hqRun;
     private NotificationManagerCompat answerManager;
@@ -104,7 +107,6 @@ public class HQScraper extends Service{
 
         //Sets up the state.
         state = GAME_STATE.INACTIVE;
-        activeFlag = false;
 
         //Creates a handler to run code.
         hqRun = new ScrapeRunnable();
@@ -238,6 +240,7 @@ public class HQScraper extends Service{
                 //Converts to JSON.
                 InputStream stream = new ByteArrayInputStream(
                         message.getBytes(StandardCharsets.UTF_8));
+                System.out.println(message);
                 JsonReader reader = null;
                 try {
                     reader = new JsonReader(new InputStreamReader(stream, "UTF-8"));
@@ -246,14 +249,18 @@ public class HQScraper extends Service{
                     reader.beginObject();
                     while (reader.hasNext()){
                         String key = reader.nextName();
+                        System.out.println(key);
                         if (key.equals(TYPE_KEY)){
                             //Determine if we have a question.
                             String value = reader.nextString();
                             if (value.equals(QUESTION_KEY)){
+                                qNum++;
                                 answerQuestion(reader);
+                                if (qTotal == 0) qTotal = getQCount(reader);
                                 return;
                             } else if (value == BROADCAST_VALUE){
-                                //TODO: Add a value to resume if the broadcast fails.
+                                //Reconnect.
+
                             } else {
                                 reader.close();
                                 return;
@@ -288,17 +295,24 @@ public class HQScraper extends Service{
 
             @Override
             public void onCloseReceived() {
-                state = GAME_STATE.INACTIVE;
+                if (qNum == qTotal && qTotal != 0){
+                    state = GAME_STATE.INACTIVE;
+                    qTotal = 0;
+                    qNum = 0;
 
-                //Tell the user that the game is over.
-                generateHQNotification(R.string.notification_alert, "The game has ended! Goodbye!");
+                    //Tell the user that the game is over.
+                    generateHQNotification(R.string.notification_alert,
+                            "The game has ended! Goodbye!");
+                } else {
+                    state = GAME_STATE.WAITING;
+                }
             }
         };
 
         webSocketClient.setConnectTimeout(10000);
         webSocketClient.setReadTimeout(60000);
         webSocketClient.addHeader("Authorization", hqAuth);
-        webSocketClient.enableAutomaticReconnection(5000);
+        webSocketClient.enableAutomaticReconnection(0);
         webSocketClient.connect();
 
     }
@@ -309,8 +323,6 @@ public class HQScraper extends Service{
         List<String> answers = new ArrayList<String>();
 
         try {
-            reader.beginObject();
-
             while (reader.hasNext()) {
                 String key = reader.nextName();
                 if (key.equals(QUESTION_KEY)){
@@ -349,6 +361,25 @@ public class HQScraper extends Service{
                 answers.get(answerVal) + " (Accuracy: " + answerConf + "%)!");
     }
 
+    private int getQCount(JsonReader reader){
+        int total = 0;
+
+        try {
+            while (reader.hasNext()) {
+                String key = reader.nextName();
+                if (key.equals(Q_COUNT_KEY)){
+                    total = reader.nextInt();
+                } else {
+                    reader.skipValue();
+                }
+            }
+        } catch (Exception e) {
+            return 0;
+        }
+
+        return total;
+    }
+
     private InputStreamReader connectToHQ(String getReq) throws Exception {
         //Connects to HQ's REST API
         //URL hqEndpoint = new URL(HQ_URL + getReq);
@@ -374,7 +405,6 @@ public class HQScraper extends Service{
         }
 
         //Determines whether we read based on GZIP.
-        String hello = hqConnection.getContentEncoding();
         InputStreamReader reader;
         if ("gzip".equals(hqConnection.getContentEncoding())) {
             reader = new InputStreamReader(
@@ -389,21 +419,33 @@ public class HQScraper extends Service{
     private class ScrapeRunnable extends Thread {
         @Override
         public void run(){
+            int gameID = -1;
+            qNum = 0;
+            qTotal = 0;
+            int refreshRate = 0;
+
             while (keepLooping){
-                int gameID = -1;
                 if (state == GAME_STATE.INACTIVE){
                     gameID = checkForGame();
+                    if (gameID != -1){
+                        refreshRate = FAST_REFRESH_RATE;
+                    } else {
+                        refreshRate = SLOW_REFRESH_RATE;
+                    }
                 }
                 if (state == GAME_STATE.WAITING && gameID != -1){
                     try {
                         connectToGameSocket(gameID);
                         state = GAME_STATE.PLAY;
+                        startActivity.setAuthStatusCode(StartActivity.GOOD_CODE);
                     } catch (Exception e){
                         e.printStackTrace();
+                        startActivity.setAuthStatusCode(StartActivity.BAD_CODE);
+                        startActivity.resetHQButton();
                     }
                 }
 
-                SystemClock.sleep(REFRESH_RATE);
+                SystemClock.sleep(refreshRate);
             }
         }
     }
