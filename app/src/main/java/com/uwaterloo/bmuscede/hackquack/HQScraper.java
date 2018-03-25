@@ -3,13 +3,16 @@ package com.uwaterloo.bmuscede.hackquack;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.JsonReader;
 
 import com.uwaterloo.bmuscede.solver.CheapDetector;
@@ -61,9 +64,12 @@ public class HQScraper extends Service{
     private static final String Q_COUNT_KEY = "questionCount";
     private static final String TYPE_KEY = "type";
     private static final String BROADCAST_VALUE = "broadcastEnded";
+    private static final String ANSWER_VALUE = "answer";
 
     private static final int FAST_REFRESH_RATE = 100;
     private static final int SLOW_REFRESH_RATE = 5000;
+
+    private boolean writeQuestion = false;
 
     private int curNotification = -1;
     private boolean keepLooping = true;
@@ -78,7 +84,8 @@ public class HQScraper extends Service{
     protected Thread hqRun;
     private NotificationManagerCompat answerManager;
     private CheapDetector detector;
-    private UICallback startActivity;
+
+    private Context curContext = null;
 
     private HostnameVerifier hostnameVerifier = new HostnameVerifier() {
         @Override
@@ -86,12 +93,6 @@ public class HQScraper extends Service{
             return true;
         }
     };
-
-    public class LocalBinder extends Binder {
-        HQScraper getService() {
-            return HQScraper.this;
-        }
-    }
 
     @Nullable
     @Override
@@ -101,6 +102,11 @@ public class HQScraper extends Service{
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        curContext = this;
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(StartActivity.receiver,
+                new IntentFilter(StartActivity.BROADCAST_STRING));
+
         //Creates a notification manager instance and answer detector.
         answerManager = NotificationManagerCompat.from(this);
         detector = new CheapDetector();
@@ -115,39 +121,47 @@ public class HQScraper extends Service{
         //Loads in the HQ authorization code.
         loadAuthorizationCode();
 
+        //Determine if we write the question.
+        loadQWriteCode();
+
         return super.onStartCommand(intent, flags, startId);
     }
 
     @Override
     public void onDestroy(){
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(StartActivity.receiver);
         keepLooping = false;
         super.onDestroy();
     }
 
-    public void registerUICallback(UICallback activity){
-        startActivity = activity;
+    private void resetActivity(){
+        Intent intent = new Intent();
+        intent.setAction(StartActivity.BROADCAST_STRING);
+        intent.putExtra(StartActivity.BROADCAST_TYPE,StartActivity.BROADCAST_TYPE_1);
+        sendBroadcast(intent);
+    }
+
+    private void updateTicker(){
+        Intent intent = new Intent();
+        intent.setAction(StartActivity.BROADCAST_STRING);
+        intent.putExtra(StartActivity.BROADCAST_TYPE,StartActivity.BROADCAST_TYPE_2);
+        sendBroadcast(intent);
     }
 
     private void loadAuthorizationCode(){
-        FileInputStream inputStream;
-        String results = "";
-
-        try {
-            inputStream = openFileInput(StartActivity.AUTH_CODE_LOC);
-            BufferedReader br = new BufferedReader(
-                    new InputStreamReader(inputStream, "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) {
-                sb.append(line);
-                sb.append('\n');
-            }
-            results = sb.toString();
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-
+        String results = CodeManager.getSavedCode(this, CodeManager.AUTH_CODE_LOC);
         hqAuth = results.trim();
+    }
+
+    private void loadQWriteCode(){
+        String results = CodeManager.getSavedCode(this, CodeManager.CHK_CODE_STATUS_LOC);
+        int code = Integer.parseInt(results.trim());
+
+        if (code == CodeManager.CHK_OFF){
+            writeQuestion = false;
+        } else {
+            writeQuestion = true;
+        }
     }
 
     private void generateHQNotification(Integer titleID, String content){
@@ -175,7 +189,7 @@ public class HQScraper extends Service{
         } catch (Exception e){
             //Notifies of the problem.
             generateHQNotification(R.string.notification_error, getString(R.string.conn_eror));
-            if (startActivity != null) startActivity.resetHQButton();
+            resetActivity();
             return -1;
         }
 
@@ -219,7 +233,7 @@ public class HQScraper extends Service{
         return -1;
     }
 
-    private void connectToGameSocket(int gameID) throws Exception{
+    private void connectToGameSocket(final int gameID) throws Exception{
         URI uri;
         try {
             uri = new URI("wss://ws-quiz.hype.space/ws/" + gameID);
@@ -228,11 +242,13 @@ public class HQScraper extends Service{
             return;
         }
 
-        WebSocketClient webSocketClient = new WebSocketClient(uri) {
+        final WebSocketClient webSocketClient = new WebSocketClient(uri) {
             @Override
             public void onOpen() {
                 //The connection succeeded!
-                if (startActivity != null) startActivity.setAuthStatusCode(StartActivity.GOOD_CODE);
+                CodeManager.saveCode(curContext, CodeManager.AUTH_CODE_STATUS_LOC,
+                        String.valueOf(CodeManager.GOOD_CODE));
+                updateTicker();
             }
 
             @Override
@@ -260,7 +276,11 @@ public class HQScraper extends Service{
                                 return;
                             } else if (value == BROADCAST_VALUE){
                                 //Reconnect.
-
+                                reader.close();
+                                onCloseReceived();
+                                close();
+                            } else if (value == ANSWER_VALUE && writeQuestion) {
+                                writeAnswerToDisk(reader);
                             } else {
                                 reader.close();
                                 return;
@@ -286,10 +306,10 @@ public class HQScraper extends Service{
             public void onException(Exception e) {
                 state = GAME_STATE.INACTIVE;
                 generateHQNotification(R.string.notification_error, getString(R.string.conn_eror));
-                if (startActivity != null) {
-                    startActivity.setAuthStatusCode(StartActivity.BAD_CODE);
-                    startActivity.resetHQButton();
-                }
+                CodeManager.saveCode(curContext, CodeManager.AUTH_CODE_STATUS_LOC,
+                        String.valueOf(CodeManager.BAD_CODE));
+                updateTicker();
+                resetActivity();
                 System.out.println(e.getMessage());
             }
 
@@ -357,8 +377,14 @@ public class HQScraper extends Service{
         int answerVal = detector.determineAnswer(question, answers);
         double answerConf = detector.getConfidence();
 
+        //Display notification.
         generateHQNotification(R.string.notification_title, "The answer is " +
                 answers.get(answerVal) + " (Accuracy: " + answerConf + "%)!");
+
+        //Write question to disk.
+        if (writeQuestion){
+            writeQuestionToDisk(question, answers);
+        }
     }
 
     private int getQCount(JsonReader reader){
@@ -416,6 +442,14 @@ public class HQScraper extends Service{
         return reader;
     }
 
+    private void writeQuestionToDisk(String q, List<String> ans) {
+
+    }
+
+    private void writeAnswerToDisk(JsonReader reader) {
+
+    }
+
     private class ScrapeRunnable extends Thread {
         @Override
         public void run(){
@@ -437,11 +471,12 @@ public class HQScraper extends Service{
                     try {
                         connectToGameSocket(gameID);
                         state = GAME_STATE.PLAY;
-                        startActivity.setAuthStatusCode(StartActivity.GOOD_CODE);
                     } catch (Exception e){
                         e.printStackTrace();
-                        startActivity.setAuthStatusCode(StartActivity.BAD_CODE);
-                        startActivity.resetHQButton();
+                        CodeManager.saveCode(curContext, CodeManager.AUTH_CODE_STATUS_LOC,
+                                String.valueOf(CodeManager.BAD_CODE));
+                        updateTicker();
+                        resetActivity();
                     }
                 }
 

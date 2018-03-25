@@ -16,6 +16,7 @@
     <string name="duck_image">Image of a duck. Logo of app.</string>
     <string name="auth_code_title">HQ Authorization Code:</string>
     <string name="auth_code_hint">(Authorization Code)</string>
+    <string name="save_questions">Save HQ Question Data</string>
 
     <string name="auth_code_ns">Please supply an authorization code!</string>
     <string name="auth_code_ukn">Unknown authorization code. Test it out!</string>
