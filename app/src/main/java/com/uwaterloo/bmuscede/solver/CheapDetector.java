@@ -7,17 +7,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CheapDetector {
-    protected enum Type {
-        GOOGLE_HITS(0.4, new GoogleHitsSolver()),
-        GOOGLE_COUNT(0.6, new GoogleResultsSolver()),
-        WIKIPEDIA(0.0, new WikipediaSolver());
+    public enum Type {
+        GOOGLE_HITS("Google Hits",
+                "Counts the number of results returned for the question paired with each answer",
+                0.4, new GoogleHitsSolver()),
+        GOOGLE_COUNT("Google Results Count",
+                "Counts the number of occurrences for each answer in a search of the question.",
+                0.6, new GoogleResultsSolver()),
+        WIKIPEDIA("Wikipedia Solver",
+                "Searches Wikipedia for the answer using Google's context awareness API.",
+                0.0, new WikipediaSolver());
 
+        String name;
+        String desc;
         double weight;
         boolean returned;
         int calcResult;
         Solver solver;
 
-        private Type(double weight, Solver curSlv) {
+        private Type(String name, String desc, double weight, Solver curSlv) {
+            this.name = name;
+            this.desc = desc;
             this.weight = weight;
             calcResult = -1;
             returned = false;
@@ -28,6 +38,10 @@ public class CheapDetector {
             calcResult = -1;
             returned = false;
         }
+
+        public String getName() { return name; }
+
+        public String getDesc() { return desc; }
 
         public double getWeight() {
             return weight;

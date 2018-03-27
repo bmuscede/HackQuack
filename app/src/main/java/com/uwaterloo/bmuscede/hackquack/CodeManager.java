@@ -1,6 +1,7 @@
 package com.uwaterloo.bmuscede.hackquack;
 
 import android.content.Context;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -64,4 +65,14 @@ public class CodeManager {
 
         return results.trim();
     }
+
+    public static void generateToast(Context curContext, String toastMsg){
+        Context context = curContext.getApplicationContext();
+        CharSequence text = toastMsg;
+        int duration = Toast.LENGTH_SHORT;
+
+        Toast toast = Toast.makeText(context, text, duration);
+        toast.show();
+    }
+
 }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/hq_menu"
+            android:icon="@drawable/ic_hq"
+            android:title="@string/hackQuack" />
+        <item
+            android:id="@+id/he_menu"
+            android:icon="@drawable/ic_evaluate"
+            android:title="@string/hEvaluate" />
+        <item
+            android:id="@+id/hqS_menu"
+            android:icon="@drawable/ic_settings"
+            android:title="@string/hackQuackSettings" />
+        <item
+            android:id="@+id/gs_menu"
+            android:icon="@drawable/ic_setting2"
+            android:title="@string/gameSettings" />
+    </group>
+</menu>

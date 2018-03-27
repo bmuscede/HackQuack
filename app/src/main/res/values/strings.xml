@@ -4,6 +4,8 @@
 
     <string name="app_desc">To begin, press the start button. HackQuack will wait for HQ to start before it begins.</string>
     <string name="bottom_desc">Developed with love at the University of Waterloo!</string>
+    <string name="warning_msg">Warning: This authorization code does not work!</string>
+    <string name="error_msg">Error: Please set an HQ authorization code in the settings before proceeding!</string>
     <string name="start_btn">Start Hacking HQ!</string>
     <string name="stop_btn">Stop Hacking HQ!</string>
     <string name="notification_title">HackQuack Answer</string>
@@ -14,13 +16,41 @@
     <string name="notification_alert">HackQuack Alert</string>
     <string name="game_start">The game is about to start! Get ready to play!</string>
     <string name="duck_image">Image of a duck. Logo of app.</string>
-    <string name="auth_code_title">HQ Authorization Code:</string>
-    <string name="auth_code_hint">(Authorization Code)</string>
-    <string name="save_questions">Save HQ Question Data</string>
 
+    <!--Auth Code Types-->
     <string name="auth_code_ns">Please supply an authorization code!</string>
     <string name="auth_code_ukn">Unknown authorization code. Test it out!</string>
     <string name="auth_code_bad">This authorization code doesn\'t work!</string>
     <string name="auth_code_good">You\'re good to go! This code works.</string>
     <string name="auth_code_desc">Authorization code image.</string>
+
+    <!--Navigation Bar-->
+    <string name="hackQuack">HackQuack</string>
+    <string name="hEvaluate">hEvaluate</string>
+    <string name="hackQuackSettings">HackQuack Settings</string>
+    <string name="gameSettings">Evaluator Settings</string>
+    <string name="title_activity_hack_quack_settings">Settings</string>
+
+    <!-- HackQuack Settings-->
+    <string name="setting_title">HackQuack Settings</string>
+    <string name="setting_sub_t">Here, you can set your HQ authorization code and configure the app to dump all HQ questions to memory.</string>
+    <string name="auth_code_hint">(Authorization Code)</string>
+    <string name="auth_code_title">HQ Authorization Code:</string>
+    <string name="save_q_title">HQ Question Saving:</string>
+    <string name="spinner_title">Save HQ Questions</string>
+    <string name="save_btn">Save...</string>
+    <string name="save_hint">(Save File Location)"</string>
+
+    <!-- Evaluator Settings-->
+    <string name="e_setting_title">Evaluator Settings</string>
+    <string name="e_setting_sub_t">Here, you can set the evaluators that answer question the HQ questions. This can affect the accuracy of HackQuack!</string>
+    <string name="evaluator_title">Active Evaluators:</string>
+
+    <!-- Evaluator Page-->
+    <string name="evaluate_title">hEvaluate</string>
+    <string name="evaluate_sub_title">You can evaluate the quality of the evaluators here. You must have saved HQ questions to do this.</string>
+    <string name="hq_question_title">HQ Questions to Load:</string>
+    <string name="hq_question_hint">(Question File)</string>
+    <string name="load_btn">Load...</string>
+    <string name="evaluate_btn">Evaluate!</string>
 </resources>
